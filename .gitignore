@@ -1,0 +1,134 @@
+# Entornos virtuales
+venv/
+env/
+.venv/
+
+# Configuración de Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pdb
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+*.manifest
+*.spec
+
+# Archivos de entorno y secretos
+.env
+.env.*
+*.ini
+*.cfg
+*.toml
+secrets.json
+
+# Archivos de logs
+*.log
+logs/
+*.out
+
+# Archivos temporales
+*.tmp
+*.swp
+*.swo
+*.bak
+*.orig
+.DS_Store
+Thumbs.db
+
+# Checkpoints y bases de datos locales
+checkpoints.db
+*.sqlite
+*.db
+*.sql
+
+# Archivos de Jupyter
+.ipynb_checkpoints
+*.ipynb_convert
+
+# IDEs
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Streamlit / cache
+.streamlit/
+.streamlit/cache/
+
+# Node / Frontend (si usas React o Vite en el frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Archivos de tests
+.coverage
+htmlcov/
+.tox/
+.pytest_cache/
+
+# Archivos del sistema
+*.bak
+*.tmp
+*.swp
+*.swo
+
+# Archivos de datos
+*.csv
+*.tsv
+*.json
+*.jsonl
+*.parquet
+*.xlsx
+*.xls
+*.xml
+*.txt
+*.dat
+
+# Modelos de ML
+*.pkl
+*.pickle
+*.joblib
+*.h5
+*.hdf5
+*.pt
+*.pth
+*.onnx
+*.pb
+*.tflite
+*.model
+*.bin
+*.safetensors
+
+# Datasets y archivos grandes
+data/
+datasets/
+raw_data/
+processed_data/
+*.zip
+*.tar.gz
+*.rar
+
+# Checkpoints de entrenamiento
+checkpoints/
+models/
+weights/
+saved_models/
+experiments/
+storage/
+
+# Archivos de métricas y resultados
+results/
+outputs/
+plots/
+figures/
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.pdf

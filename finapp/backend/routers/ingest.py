@@ -5,6 +5,7 @@ from ..graph.build import build_graph
 from ..settings import DOCS_DIR, CONF_HIGH, CONF_MED, GCS_BUCKET
 from ..models import ExtractPauseResponse, ExtractReadyResponse
 from langgraph.types import Command
+from starlette.concurrency import run_in_threadpool
 
 router = APIRouter()
 graph = build_graph()
@@ -25,16 +26,19 @@ async def ingest(file: UploadFile = File(...),
     config = {"configurable": {"thread_id": run_id}}
 
     # Invoca grafo
-    result = graph.invoke({
-        "run_id": run_id,
-        "doc_id": doc_id,
-        "doc_path": path,
-        "need_review": False,
-        "issues": [],
-        "audit": [],
-        "confidence_thresholds": {"high": CONF_HIGH, "medium": CONF_MED},
-        "use_gcs": bool(GCS_BUCKET)
-    }, config=config)
+    def _invoke():
+        return graph.invoke({
+            "run_id": run_id,
+            "doc_id": doc_id,
+            "doc_path": path,
+            "need_review": False,
+            "issues": [],
+            "audit": [],
+            "confidence_thresholds": {"high": CONF_HIGH, "medium": CONF_MED},
+            "use_gcs": bool(GCS_BUCKET)
+        }, config=config)
+
+    result = await run_in_threadpool(_invoke)
 
     # ¿Se pausó?
     intr = result.get("__interrupt__")

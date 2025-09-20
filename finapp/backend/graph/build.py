@@ -3,6 +3,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from .state import AppState
 from .nodes import node_parse, node_extract, node_validate, node_hitl_gate, node_apply_feedback, node_ratios
 from ..settings import CHECKPOINT_DB
+import sqlite3
 
 def build_graph():
     g = StateGraph(AppState)
@@ -21,5 +22,7 @@ def build_graph():
     g.add_edge("apply_feedback", "validate")
     g.add_edge("ratios", END)
 
-    checkpointer = SqliteSaver.from_conn_string(f"sqlite:///{CHECKPOINT_DB}")
+    conn = sqlite3.connect(CHECKPOINT_DB, check_same_thread=False)
+    checkpointer = SqliteSaver(conn)
+
     return g.compile(checkpointer=checkpointer)

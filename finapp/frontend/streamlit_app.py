@@ -28,7 +28,7 @@ with tab1:
         with st.spinner("Procesando…"):
             files = {"file": (f.name, f.getvalue(), f.type)}
             data = {"period": period, "currency": currency, "language": "es"}
-            r = requests.post(f"{API_BASE}/ingest", files=files, data=data, timeout=120)
+            r = requests.post(f"{API_BASE}/ingest", files=files, data=data, timeout=(10, 600))
         if r.ok:
             resp = r.json()
             st.session_state.run_id = resp["run_id"]
@@ -69,23 +69,29 @@ with tab2:
         currency_sel = st.text_input("Confirma moneda", value=payload.get("currency") or "MXN")
 
         if st.button("Aplicar correcciones y continuar", type="primary"):
+            orig_map = {row["path"]: row["value"] for _, row in df.iterrows()}
             corrections = []
-            for idx, row in edited.iterrows():
+            for _, row in edited.iterrows():
                 path = row["path"]
                 new_v = row.get("value_extracted")
-                # sólo si cambió (simple)
-                orig = df.loc[idx, "value"]
-                if pd.isna(new_v) and pd.isna(orig):
-                    continue
-                if new_v != orig:
-                    corrections.append({"path": path, "new_value": None if pd.isna(new_v) else float(new_v), "reason": "UI edit"})
+                orig_v = orig_map.get(path, None)
 
-            # escala/moneda
+                if pd.isna(orig_v):
+                    orig_v = None
+                if pd.isna(new_v):
+                    new_v = None
+
+                if new_v != orig_v:
+                    corr = {"path": path, "reason": "UI edit"}
+                    corr["new_value"] = None if new_v is None else float(new_v)
+                    corrections.append(corr)
+
+            # siempre confirmar escala y moneda
             corrections.append({"path": "meta.scale_confirmed", "new_value": scale})
             corrections.append({"path": "meta.currency_confirmed", "new_value": currency_sel})
 
             with st.spinner("Revalidando…"):
-                r = requests.post(f"{API_BASE}/review", json={"run_id": st.session_state.run_id, "corrections": corrections}, timeout=120)
+                r = requests.post(f"{API_BASE}/review", json={"run_id": st.session_state.run_id, "corrections": corrections}, timeout=(10, 300))
             if r.ok:
                 resp = r.json()
                 if resp["status"] == "NEEDS_REVIEW":
