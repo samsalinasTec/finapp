@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Entornos y configuración local
+.env
+.env.*
+*.ini
+secrets.json
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Git
+.git/
+.gitignore
+.github/
+
+# Documentación
+README.md
+docs/
+*.md
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+tests/
+
+# Datos locales
+*.db
+*.sqlite
+storage/
+data/
+*.csv
+*.xlsx
+*.pdf
+*.png
+*.jpg
+
+# Builds
+dist/
+build/
+*.egg-info/
+
+# MacOS
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Node (si tienes)
+node_modules/
+package-lock.json
+yarn.lock
