@@ -27,13 +27,26 @@ def _to_financials_from_fields(period, currency, scale, fields: List[ExtractionF
     return fin
 
 def node_extract(state: Dict[str, Any]) -> Dict[str, Any]:
+    from ..services.gcs import GCS_BUCKET as GCS_BUCKET_IMPORTED
+    
+    print(f"🔍 DEBUG - use_gcs: {state.get('use_gcs')}")
+    print(f"🔍 DEBUG - GCS_BUCKET desde settings: {GCS_BUCKET_IMPORTED}")
+    print(f"🔍 DEBUG - doc_path: {state.get('doc_path')}")
+    
     # Si hay bucket, sube a GCS para multimodal; si no, usa texto/tablas
     gcs_uri_mime = None
     try:
         if state.get("use_gcs"):
+            print("📤 Intentando subir archivo a GCS...")
             gcs_uri, mime = gcs.upload_to_gcs(state["doc_path"])
             gcs_uri_mime = (gcs_uri, mime)
-    except Exception:
+            print(f"✅ ÉXITO: Archivo subido a {gcs_uri}")
+        else:
+            print("⚠️  NO SE SUBE: use_gcs es False")
+    except Exception as e:
+        print(f"❌ ERROR subiendo a GCS: {e}")
+        import traceback
+        traceback.print_exc()
         gcs_uri_mime = None
 
     result = vertex_client.extract_with_vertex(gcs_uri_mime, state.get("text") or "", state.get("tables") or [])

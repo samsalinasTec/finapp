@@ -28,7 +28,7 @@ with tab1:
         with st.spinner("Procesando…"):
             files = {"file": (f.name, f.getvalue(), f.type)}
             data = {"period": period, "currency": currency, "language": "es"}
-            r = requests.post(f"{API_BASE}/ingest", files=files, data=data, timeout=(10, 600))
+            r = requests.post(f"{API_BASE}/ingest", files=files, data=data, timeout=(10, 900))
         if r.ok:
             resp = r.json()
             st.session_state.run_id = resp["run_id"]
@@ -91,7 +91,7 @@ with tab2:
             corrections.append({"path": "meta.currency_confirmed", "new_value": currency_sel})
 
             with st.spinner("Revalidando…"):
-                r = requests.post(f"{API_BASE}/review", json={"run_id": st.session_state.run_id, "corrections": corrections}, timeout=(10, 300))
+                r = requests.post(f"{API_BASE}/review", json={"run_id": st.session_state.run_id, "corrections": corrections}, timeout=(10, 600))
             if r.ok:
                 resp = r.json()
                 if resp["status"] == "NEEDS_REVIEW":

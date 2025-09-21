@@ -5,6 +5,7 @@ class AppState(TypedDict, total=False):
     run_id: str
     doc_id: str
     doc_path: str
+    use_gcs: bool  # ← AGREGAR ESTA LÍNEA
     gcs_uri: Optional[str]
     gcs_mime: Optional[str]
     text: Optional[str]
