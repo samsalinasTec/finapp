@@ -23,6 +23,8 @@ build/
 *.ini
 *.cfg
 *.toml
+!pyproject.toml
+!poetry.toml
 secrets.json
 
 # Archivos de logs
