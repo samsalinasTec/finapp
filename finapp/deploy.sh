@@ -32,9 +32,12 @@ if ! command -v gcloud &> /dev/null; then
   exit 1
 fi
 
+# PARCHE: si no hay Docker local, usa Cloud Build (remoto)
 if ! command -v docker &> /dev/null; then
-  echo -e "${RED}❌ Error: Docker no está instalado o no está en PATH${NC}"
-  exit 1
+  echo -e "${YELLOW}⚠️ Docker no está disponible. Usaré Cloud Build (remoto).${NC}"
+  USE_CLOUD_BUILD=1
+else
+  USE_CLOUD_BUILD=0
 fi
 
 # ----- Detectar config actual -----
@@ -176,28 +179,41 @@ fi
 
 echo -e "${GREEN}✓${NC} Usando SA: ${GREEN}${SA_EMAIL}${NC}"
 
-# Permisos recomendados (ajusta si no usas Vertex)
-echo "Verificando/asignando permisos base al proyecto..."
-for ROLE in "roles/aiplatform.user" "roles/logging.logWriter"; do
-  if ! gcloud projects get-iam-policy "$PROJECT_ID" \
-      --flatten="bindings[].members" \
-      --filter="bindings.members=serviceAccount:${SA_EMAIL}" \
-      --format="value(bindings.role)" | grep -q "$ROLE"; then
-    echo "  + Asignando $ROLE"
-    gcloud projects add-iam-policy-binding "$PROJECT_ID" \
-      --member="serviceAccount:${SA_EMAIL}" \
-      --role="$ROLE" >/dev/null
-  else
-    echo "  ✓ Ya tenía $ROLE"
-  fi
-done
+# OMITIR asignación de permisos si ya es OWNER
+echo "Verificando permisos existentes..."
+EXISTING_ROLES=$(gcloud projects get-iam-policy "$PROJECT_ID" \
+    --flatten="bindings[].members" \
+    --filter="bindings.members:serviceAccount:${SA_EMAIL}" \
+    --format="value(bindings.role)" 2>/dev/null || echo "")
 
-# Si hay bucket, permiso a nivel bucket (mínimo práctico)
+if echo "$EXISTING_ROLES" | grep -q "roles/owner"; then
+    echo -e "${GREEN}✓${NC} La SA tiene rol OWNER - omitiendo asignación de permisos adicionales"
+else
+    echo "La SA NO es owner. Permisos actuales:"
+    echo "$EXISTING_ROLES"
+    read -rp "¿Intentar asignar permisos básicos? (y/N): " -n 1 -r; echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        for ROLE in "roles/aiplatform.user" "roles/logging.logWriter"; do
+            echo "  Intentando asignar $ROLE..."
+            gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+                --member="serviceAccount:${SA_EMAIL}" \
+                --role="$ROLE" 2>/dev/null || echo "  ⚠️ No se pudo asignar $ROLE"
+        done
+    fi
+fi
+
+# Si hay bucket, dar permisos a nivel bucket (esto SÍ puede ser necesario incluso con OWNER)
 if [[ -n "${GCS_BUCKET:-}" ]]; then
-  echo "Concediendo roles/storage.objectAdmin sobre gs://${GCS_BUCKET} a ${SA_EMAIL}..."
-  gcloud storage buckets add-iam-policy-binding "gs://${GCS_BUCKET}" \
-    --member="serviceAccount:${SA_EMAIL}" \
-    --role="roles/storage.objectAdmin" >/dev/null
+  echo "Verificando permisos sobre el bucket gs://${GCS_BUCKET}..."
+  if ! gsutil iam get "gs://${GCS_BUCKET}" | grep -q "${SA_EMAIL}"; then
+    echo "Concediendo acceso al bucket..."
+    gcloud storage buckets add-iam-policy-binding "gs://${GCS_BUCKET}" \
+      --member="serviceAccount:${SA_EMAIL}" \
+      --role="roles/storage.objectAdmin" 2>/dev/null || \
+      echo "  ⚠️ No se pudo asignar permisos al bucket (puede que ya los tenga)"
+  else
+    echo -e "${GREEN}✓${NC} Ya tiene permisos sobre el bucket"
+  fi
 fi
 
 # ----- Artifact Registry: repo + auth -----
@@ -236,15 +252,26 @@ gcloud artifacts repositories add-iam-policy-binding "$REPO_NAME" \
   --role="roles/artifactregistry.reader" >/dev/null || true
 
 # ----- Build & Push -----
-echo -e "\n${YELLOW}4️⃣ Construyendo imagen Docker...${NC}"
-docker build -t "$IMAGE_URL" .
+if [[ "${USE_CLOUD_BUILD:-0}" -eq 1 ]]; then
+  echo -e "\n${YELLOW}4️⃣ Construyendo y subiendo imagen con Cloud Build (remoto)...${NC}"
+  gcloud builds submit --tag "$IMAGE_URL" --project "$PROJECT_ID" --region "$REGION"
 
-# (Opcional) mantiene conveniencia con :latest además del tag inmutable
-docker tag "$IMAGE_URL" "$LATEST_URL"
+  # Mantener también el tag :latest (equivalente a docker tag/push latest)
+  DIGEST="$(gcloud artifacts docker images describe "$IMAGE_URL" --format='value(image_summary.digest)')"
+  gcloud artifacts docker tags add \
+    "$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$SERVICE_NAME@${DIGEST}" \
+    "$LATEST_URL"
+else
+  echo -e "\n${YELLOW}4️⃣ Construyendo imagen Docker...${NC}"
+  docker build -t "$IMAGE_URL" .
 
-echo -e "\n${YELLOW}5️⃣ Subiendo imagen a Artifact Registry...${NC}"
-docker push "$IMAGE_URL"
-docker push "$LATEST_URL"
+  # (Opcional) mantiene conveniencia con :latest además del tag inmutable
+  docker tag "$IMAGE_URL" "$LATEST_URL"
+
+  echo -e "\n${YELLOW}5️⃣ Subiendo imagen a Artifact Registry...${NC}"
+  docker push "$IMAGE_URL"
+  docker push "$LATEST_URL"
+fi
 
 # ----- Variables de entorno (no sensibles) -----
 echo -e "\n${YELLOW}6️⃣ Generando .env.yaml (no incluyas secretos aquí)...${NC}"
@@ -265,9 +292,9 @@ fi
 
 # ----- Despliegue a Cloud Run -----
 echo -e "\n${YELLOW}7️⃣ Desplegando a Cloud Run...${NC}"
-# Nota: Asegúrate de que tu app escuche en 0.0.0.0:\$PORT o usa --port acorde (p.ej., 8501)
-read -rp "Puerto de la app dentro del contenedor (default: 8501): " APP_PORT
-APP_PORT=${APP_PORT:-8501}
+# Nota: Asegúrate de que tu app escuche en 0.0.0.0:$PORT o usa --port acorde (p.ej., 8501)
+read -rp "Puerto de la app dentro del contenedor (default: 8080): " APP_PORT
+APP_PORT=${APP_PORT:-8080}  # ← Cambiar a 8080
 
 # Si el servicio ya existe, simplemente crea nueva revisión
 if gcloud run services describe "$SERVICE_NAME" --region "$REGION" --project "$PROJECT_ID" >/dev/null 2>&1; then
@@ -286,7 +313,6 @@ gcloud run deploy "$SERVICE_NAME" \
   --max-instances "$MAX_INSTANCES" \
   --min-instances 0 \
   --port "$APP_PORT" \
-  --service-account "$SA_EMAIL" \
   --env-vars-file .env.yaml \
   --project "$PROJECT_ID" >/dev/null
 

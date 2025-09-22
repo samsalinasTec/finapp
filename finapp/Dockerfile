@@ -40,11 +40,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     tesseract-ocr-spa \
     tesseract-ocr-eng \
     poppler-utils \
-    libgl1-mesa-glx \
+    libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
-    libxrender-dev \
+    libxrender1 \
     libgomp1 \
     wget \
     curl \
@@ -64,7 +64,8 @@ RUN useradd -m -u 1000 appuser && \
 WORKDIR /app
 
 # Copiar código de la aplicación
-COPY --chown=appuser:appuser finapp/ ./finapp/
+COPY --chown=appuser:appuser backend/ ./finapp/backend/
+COPY --chown=appuser:appuser frontend/ ./finapp/frontend/
 
 # Copiar script de inicio
 COPY --chown=appuser:appuser start.sh .

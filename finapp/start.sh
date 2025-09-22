@@ -4,9 +4,11 @@ set -e
 echo "🚀 Iniciando FinApp..."
 
 # Configurar variables de entorno
-export API_PORT=7070
+
+export MAIN_PORT=${PORT:-8080}
+export API_PORT=8000  # FastAPI en puerto interno
 export API_BASE="http://localhost:${API_PORT}/api/v1"
-export STREAMLIT_SERVER_PORT=${PORT:-8080}
+export STREAMLIT_SERVER_PORT=${MAIN_PORT}
 export STREAMLIT_SERVER_ADDRESS=0.0.0.0
 
 # Iniciar FastAPI en background
@@ -40,11 +42,15 @@ if [ $attempt -eq $max_attempts ]; then
 fi
 
 # Iniciar Streamlit
+
+
 echo "🎨 Iniciando Frontend Streamlit..."
 cd /app
 streamlit run finapp/frontend/streamlit_app.py \
     --server.port ${STREAMLIT_SERVER_PORT} \
     --server.address 0.0.0.0 \
-    --server.baseUrlPath / \
     --browser.gatherUsageStats false \
-    --server.fileWatcherType none
+    --server.fileWatcherType none \
+    --server.enableCORS false \
+    --server.enableXsrfProtection false \
+    --server.enableWebsocketCompression false
